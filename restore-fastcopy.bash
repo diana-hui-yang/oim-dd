@@ -11,6 +11,7 @@
 # Changes:
 # 01/24/19 Diana Yang  New script
 # 02/07/19 Diana Yang  Only fastcopy archivelog when needed 
+# 03/12/19 Diana Yang  Allow several copies of the same database 
 #
 # footnotes:
 # If you use this script and would like to get new code when any fixes are added,
@@ -19,19 +20,18 @@
 #################################################################
 
 function show_usage {
-echo "usage: restore-fastcopy.ksh -d <Data Domain> -u <DD User>  -m <Mount Point> -h <Host> -o <Oracle_sid> -t <mtree> -a <yes or no> -s <Source Directory>"
+echo "usage: restore-fastcopy.ksh -d <Data Domain> -u <DD User>  -m <Mount Point> -h <Host> -o <Oracle_sid> -t <Target Directory> -a <yes or no> -s <Source Directory>"
 echo " -d : Data Domain"
 echo " -u : DD user (administrator role)"
 echo " -m : Mount Point"
 echo " -h : Backup Host"
 echo " -o : ORACLE_SID"
 echo " -a : No means start the database without archivelog"
-echo " -t : mtree (optional, start with /data/col1/
-If mtree is not provides, we assume it is the same as the last field of Mount Point)"
-echo " -s : Source Directory after directory <mount point>/<host>/<oracle_sid>"
+echo " -t : Target Directory after directory <mount point>/<host>/<oracle_sid>"
+echo " -s : Source Directory after directory <mount point>/<host>/<oracle_sid>>/<Target Directory>"
 }
 
-while getopts ":d:u:m:h:a:o:s:" opt; do
+while getopts ":d:u:m:h:a:o:t:s:" opt; do
   case $opt in
     d ) dd=$OPTARG;;
     u ) user=$OPTARG;;
@@ -39,13 +39,14 @@ while getopts ":d:u:m:h:a:o:s:" opt; do
     h ) host=$OPTARG;;
     a ) applylog=$OPTARG;;
     o ) oraclesid=$OPTARG;;
+    t ) tdir=$OPTARG;; 
     s ) sdir=$OPTARG;; 
   esac
 done
 
-echo $dd $user $mount $sdir
+echo $dd $user $mount $sdir $tdir
 # Check required parameters
-if test $dd && test $user && test $mount && test $host && test $oraclesid && test $sdir 
+if test $dd && test $user && test $mount && test $host && test $oraclesid && test $sdir
 then
   :
 else
@@ -74,11 +75,18 @@ if [[ -z $mtree ]]; then
 fi
 
 source_dir_dd=${mtree}/$host/$oraclesid/full/$sdir
-target_dir_dd=${mtree}-instant/$host/$oraclesid/full/$sdir
 archives_dir_dd=${mtree}/$host/$oraclesid/archivelog
-archivet_dir_dd=${mtree}-instant/$host/$oraclesid/archivelog
 controls_dir_dd=${mtree}/$host/$oraclesid/controlfile
-controlt_dir_dd=${mtree}-instant/$host/$oraclesid/controlfile
+
+if [[ -z $tdir ]]; then
+   target_dir_dd=${mtree}-instant/$host/$oraclesid/full/$sdir
+   archivet_dir_dd=${mtree}-instant/$host/$oraclesid/archivelog
+   controlt_dir_dd=${mtree}-instant/$host/$oraclesid/controlfile
+else
+   target_dir_dd=${mtree}-instant/$host/$oraclesid/$tdir/full/$sdir
+   archivet_dir_dd=${mtree}-instant/$host/$oraclesid/$tdir/archivelog
+   controlt_dir_dd=${mtree}-instant/$host/$oraclesid/$tdir/controlfile
+fi
 
 echo "Fastcopy from source $source_dir_dd to target $target_dir_dd"
 
@@ -97,6 +105,12 @@ fi
 
 #sync; sync;
 #ls -l ${data_root_dir}/$sdir/*data_D*
-echo ${data_root_dir}/$sdir
-echo ${data_root_dir}/archivelog
-echo ${data_root_dir}/controlfile
+if [[ -z $tdir ]]; then
+   echo ${data_root_dir}/full/$sdir
+   echo ${data_root_dir}/archivelog
+   echo ${data_root_dir}/controlfile
+else
+   echo ${data_root_dir}/$tdir/full/$sdir
+   echo ${data_root_dir}/$tdir/archivelog
+   echo ${data_root_dir}/$tdir/controlfile
+fi
